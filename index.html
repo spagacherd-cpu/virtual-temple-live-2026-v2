@@ -1,186 +1,570 @@
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Virtual Temple LIVE 2026</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#080b29;color:#fff;font-family:Arial,sans-serif}
-header{text-align:center;padding:15px;color:#ffe19a}
-h1{font-size:24px;margin:5px}
-#scene{height:65vh;min-height:420px;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 45%,#49306b,#10183d 65%,#050819)}
-canvas{width:100%;height:100%;display:block}
-.panel{padding:12px;text-align:center;background:#101735}
-.stats{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
-.stat{background:#29234a;border:1px solid #d9ad55;border-radius:20px;padding:8px 12px;font-size:13px}
-button{background:linear-gradient(135deg,#ffe6a0,#d99a35);border:0;border-radius:12px;padding:13px 8px;font-weight:bold;color:#39220b}
-.buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:12px}
-#message{color:#ffdf8c;min-height:28px;margin:12px}
-small{color:#bbb}
+body{margin:0;background:#080d20;color:white;font-family:Arial,sans-serif}
+header{text-align:center;padding:12px;color:#ffe4a0}
+header h1{margin:5px;font-size:26px}
+#scene{height:55vh;min-height:350px}
+#scene canvas{display:block;width:100%;height:100%}
+.panel{max-width:900px;margin:auto;padding:14px;background:#111a35;border-top:2px solid #b88c40}
+.stats,.controls{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stat{padding:12px;background:#263451;border:1px solid #b88c40;border-radius:10px;text-align:center}
+.stat b{display:block;font-size:22px}
+#message{text-align:center;color:#ffe4a0;padding:12px;min-height:40px}
+button,select{padding:12px;border-radius:9px;border:1px solid #d5b568;font-weight:bold;font-size:14px}
+button{background:linear-gradient(135deg,#ffe6a0,#b77b27);color:#241806;cursor:pointer}
+select{background:#263451;color:white}
+.wide{grid-column:1/-1}
+.status{text-align:center;color:#b9d7ff;font-size:12px;padding:10px}
+@media(min-width:700px){.controls{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
+
 <header>
 <h1>🙏 VIRTUAL TEMPLE 🙏</h1>
-<div>ร่วมสักการะพระพุทธรูปออนไลน์</div>
+<p>ร่วมสักการะพระพุทธรูปออนไลน์ • Virtual Temple LIVE 2026</p>
 </header>
+
 <div id="scene"></div>
-<div class="panel">
+
+<section class="panel">
 <div class="stats">
-<div class="stat">🪷 บัว <b id="lotus">0</b></div>
-<div class="stat">🕯️ โคม <b id="lamps">12</b></div>
-<div class="stat">🙏 สาธุ <b id="merit">0</b></div>
+ <div class="stat">🪷 บัวทองบาน<b id="lotus">0</b></div>
+ <div class="stat">🏮 โคมไฟ<b id="lamps">12</b></div>
+ <div class="stat">🙏 สาธุสะสม<b id="merit">0 / 20</b></div>
+ <div class="stat">👥 ผู้ร่วมวิหาร<b id="playersCount">0</b></div>
 </div>
+
 <div id="message">ยินดีต้อนรับสู่ Virtual Temple</div>
-<div class="buttons">
-<button onclick="gift('lotus')">🪷 ถวายดอกบัว</button>
-<button onclick="gift('rose')">🌹 ส่งกุหลาบ</button>
-<button onclick="gift('lamp')">🕯️ จุดโคม</button>
-<button onclick="gift('sathu')">🙏 กดสาธุ</button>
+
+<div class="controls">
+ <button onclick="gift('sathu')">🙏 กดสาธุ</button>
+ <button onclick="gift('lotus')">🪷 ถวายดอกบัว</button>
+ <button onclick="gift('rose')">🌹 ส่งกุหลาบ</button>
+ <button onclick="gift('lamp')">🏮 จุดโคมไฟ</button>
+
+ <select id="avatarGender">
+  <option value="female">ตัวละครหญิง</option>
+  <option value="male">ตัวละครชาย</option>
+ </select>
+
+ <select id="avatarOutfit">
+  <option value="white">ชุดสุภาพสีขาว</option>
+  <option value="thai">ชุดไทยประยุกต์</option>
+  <option value="casual">ชุดสุภาพสีครีม</option>
+ </select>
+
+ <button id="joinTemple">เข้าวิหาร</button>
+ <button id="walkTemple">เดินไปไหว้พระ</button>
+ <button id="kneelTemple">นั่งพนมมือ</button>
+ <button id="bowTemple">กราบพระ 3 ครั้ง</button>
+ <button id="resetPose" class="wide">ยืน / กลับจุดเริ่มต้น</button>
 </div>
-<p><small>โหมดทดลองเอฟเฟกต์ ของขวัญเหล่านี้ยังไม่ใช่การซื้อจริง</small></p>
-</div>
+
+<div class="status" id="liveStatus">กำลังเชื่อมต่อระบบวิหาร...</div>
+<p class="status">ระบบของขวัญในหน้านี้เป็นโหมดทดสอบ ยังไม่ได้เชื่อมต่อของขวัญจริงจาก TikTok หรือ Facebook</p>
+</section>
+
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
-const root=document.getElementById('scene');
+const $=id=>document.getElementById(id);
+const root=$('scene');
+
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x111638);
-scene.fog=new THREE.Fog(0x111638,25,60);
+scene.background=new THREE.Color(0x101832);
+scene.fog=new THREE.Fog(0x101832,25,65);
 
-const camera=new THREE.PerspectiveCamera(48,innerWidth/(innerHeight*.65),.1,100);
-camera.position.set(0,7,23);
-camera.lookAt(0,5,0);
+const camera=new THREE.PerspectiveCamera(
+45,root.clientWidth/root.clientHeight,0.1,150
+);
+camera.position.set(0,8,22);
+camera.lookAt(0,4,0);
 
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(innerWidth,innerHeight*.65);
+renderer.setSize(root.clientWidth,root.clientHeight);
+renderer.shadowMap.enabled=true;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
 root.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xffe3ac,0x34345f,2));
-const lamp=new THREE.PointLight(0xffc45c,180,35);
-lamp.position.set(0,9,5);
-scene.add(lamp);
+scene.add(new THREE.HemisphereLight(0xffe9c2,0x27314f,2));
 
-const gold=new THREE.MeshStandardMaterial({color:0xffc43d,metalness:.75,roughness:.25});
-const dark=new THREE.MeshStandardMaterial({color:0x292c59});
-const white=new THREE.MeshStandardMaterial({color:0xffe4a0});
+const sun=new THREE.DirectionalLight(0xffd58a,3);
+sun.position.set(-8,15,12);
+sun.castShadow=true;
+scene.add(sun);
 
-function add(geo,mat,x,y,z){
-const m=new THREE.Mesh(geo,mat);
-m.position.set(x,y,z);
-scene.add(m);
-return m;
+const glow=new THREE.PointLight(0xffa83d,80,35);
+glow.position.set(0,9,5);
+scene.add(glow);
+
+const gold=new THREE.MeshStandardMaterial({
+ color:0xd9a83d,metalness:.8,roughness:.25
+});
+const gold2=new THREE.MeshStandardMaterial({
+ color:0xffdf83,metalness:.6,roughness:.2,
+ emissive:0x5a3108
+});
+const stone=new THREE.MeshStandardMaterial({color:0x75664f});
+const robe=new THREE.MeshStandardMaterial({color:0xc95b20});
+const skin=new THREE.MeshStandardMaterial({color:0xc99562});
+const dark=new THREE.MeshStandardMaterial({color:0x202b4b});
+
+function add(geo,mat,x=0,y=0,z=0,parent=scene){
+ const m=new THREE.Mesh(geo,mat);
+ m.position.set(x,y,z);
+ m.castShadow=true;
+ m.receiveShadow=true;
+ parent.add(m);
+ return m;
 }
-function box(w,h,d,x,y,z,mat=gold){
-return add(new THREE.BoxGeometry(w,h,d),mat,x,y,z);
+function box(w,h,d,mat,x,y,z){
+ return add(new THREE.BoxGeometry(w,h,d),mat,x,y,z);
+}
+function ball(x,y,z,sx,sy,sz,mat,parent=scene){
+ const m=add(new THREE.SphereGeometry(1,24,18),mat,x,y,z,parent);
+ m.scale.set(sx,sy,sz);
+ return m;
 }
 
-// Temple
-box(15,7,2,0,4,-5,dark);
-box(17,.5,3,0,7.7,-4);
-box(13,.4,3,0,1,-3);
-for(let x=-6;x<=6;x+=3)box(.5,6,.6,x,4,-2,white);
+// พื้นและวิหาร
+box(20,.5,12,dark,0,0,-4);
+box(17,.3,8,gold,0,.4,-4);
+box(15,.3,6,stone,0,.7,-4);
 
-function roof(x,y,z,w){
-const r=add(new THREE.ConeGeometry(w,3,4),gold,x,y,z);
-r.rotation.y=Math.PI/4;
-r.scale.set(1,.8,.7);
+for(const x of [-6,6]){
+ for(const z of [-7,-1]){
+  add(new THREE.CylinderGeometry(.2,.3,6,16),gold,x,3.5,z);
+ }
 }
-roof(0,10,-5,9);
-roof(0,11,-3,6);
-roof(-7,7,-4,4);
-roof(7,7,-4,4);
 
-// Buddha lotus pedestal
+function roof(y,w){
+ const r=add(new THREE.ConeGeometry(w,1.5,4),gold,0,y,-4);
+ r.rotation.y=Math.PI/4;
+ box(w*1.7,.12,w,gold2,0,y-.75,-4);
+}
+roof(7.5,8);
+roof(8.5,6);
+roof(9.5,4);
+
+// ฐานบัวองค์พระ
 for(let i=0;i<4;i++){
-const b=add(new THREE.CylinderGeometry(4-i*.4,4.3-i*.4,.45,48),gold,0,.2+i*.45,0);
+ add(new THREE.CylinderGeometry(
+ 2.4-i*.2,2.6-i*.2,.3,48
+ ),i%2?gold:gold2,0,1.5+i*.3,0);
 }
 
-// Buddha body
-add(new THREE.SphereGeometry(1.2,32,24),gold,0,4.2,1);
-const body=add(new THREE.ConeGeometry(1.55,3,32),gold,0,3.5,1);
-body.rotation.z=Math.PI;
-add(new THREE.SphereGeometry(.75,32,24),gold,0,6.2,1);
-for(let x of [-.78,.78])
-add(new THREE.SphereGeometry(.2,16,16),gold,x,6.2,1);
-add(new THREE.TorusGeometry(1.6,.1,12,80),white,0,6.2,.2);
+// องค์พระต้นแบบ 3D
+ball(0,3.2,0,1.5,.65,1,robe);
+ball(0,4.7,0,.9,1.3,.7,robe);
+ball(-.4,5.2,.15,.65,1,.65,robe);
+add(new THREE.CylinderGeometry(.3,.4,.4,24),skin,0,5.9,0);
+ball(0,6.8,0,.72,.9,.65,skin);
+ball(0,7.55,0,.5,.3,.5,dark);
+add(new THREE.ConeGeometry(.12,.4,16),gold2,0,7.9,0);
 
-// Moon and stars
-add(new THREE.SphereGeometry(1.6,32,24),
-new THREE.MeshBasicMaterial({color:0xffedb2}),8,13,-12);
-for(let i=0;i<100;i++){
-add(new THREE.SphereGeometry(.035,8,8),
-new THREE.MeshBasicMaterial({color:0xffffff}),
-(Math.random()-.5)*40,Math.random()*20+2,-12);
+// รัศมีด้านหลัง
+const halo=new THREE.Group();
+scene.add(halo);
+halo.position.set(0,6.8,-.7);
+for(const r of [1.2,1.5,1.8]){
+ const ring=new THREE.Mesh(
+  new THREE.TorusGeometry(r,.035,12,80),
+  new THREE.MeshBasicMaterial({color:0xffd66e})
+ );
+ halo.add(ring);
 }
 
-// Twelve lamps
+// โคมไฟ 12 ดวง
 const lamps=[];
 for(let i=0;i<12;i++){
-const x=(i-5.5)*1.1;
-box(.16,.7,.16,x,1,3);
-lamps.push(add(new THREE.SphereGeometry(.14,12,12),
-new THREE.MeshBasicMaterial({color:0xffcc55}),x,1.5,3));
+ const x=(i-5.5)*1.05;
+ const y=3+(i%2)*.5;
+ const z=i%2?2.5:-2.5;
+ const cage=add(
+  new THREE.CylinderGeometry(.18,.2,.4,8),gold,x,y,z
+ );
+ const bulb=add(
+  new THREE.SphereGeometry(.16,16,12),
+  new THREE.MeshBasicMaterial({color:0xffd36b}),x,y,z
+ );
+ const light=new THREE.PointLight(0xffb84a,2,5);
+ light.position.set(x,y,z);
+ scene.add(light);
+ lamps.push({cage,bulb,light});
 }
 
-// Flower effects
-function flower(color){
-const x=(Math.random()-.5)*7;
-const z=2;
-for(let i=0;i<6;i++){
-const p=add(new THREE.SphereGeometry(.22,12,12),
-new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.3}),
-x+Math.cos(i*Math.PI/3)*.28,.5,z+Math.sin(i*Math.PI/3)*.28);
-p.scale.y=.5;
-}
-add(new THREE.SphereGeometry(.12,12,12),gold,x,.5,z);
+// ดาว
+const stars=[];
+for(let i=0;i<100;i++){
+ const s=add(
+  new THREE.SphereGeometry(.035,8,8),
+  new THREE.MeshBasicMaterial({color:0xffffff}),
+  (Math.random()-.5)*40,
+  Math.random()*15+4,-12
+ );
+ stars.push(s);
 }
 
+// บัวทอง
+const bloom=new THREE.Group();
+scene.add(bloom);
+bloom.position.set(0,2.7,0);
+let bloomOpen=false;
+
+function openBloom(){
+ if(bloomOpen)return;
+ bloomOpen=true;
+ for(let i=0;i<20;i++){
+  const a=i*Math.PI*2/20;
+  const p=ball(
+   Math.cos(a)*1.3,0,Math.sin(a)*1.3,
+   .3,.12,.7,gold2,bloom
+  );
+  p.rotation.y=-a;
+ }
+ ball(0,.1,0,.35,.2,.35,gold2,bloom);
+ $('message').textContent='🪷 บัวทองบานแล้ว อนุโมทนาบุญ';
+}
+
+// ระบบกิจกรรม
 let merit=0,lotus=0,lampCount=12;
 
+function updateStats(){
+ $('merit').textContent=merit+' / 20';
+ $('lotus').textContent=lotus;
+ $('lamps').textContent=lampCount;
+}
+
 window.gift=function(type){
-merit++;
-let message='';
-if(type==='lotus'){
-lotus++;
-flower(0xffd65c);
-message='🪷 บัวทองบานแล้ว อนุโมทนา';
-}
-if(type==='rose'){
-flower(0xff3975);
-message='🌹 ขอบคุณสำหรับดอกกุหลาบ';
-}
-if(type==='lamp'){
-lampCount++;
-const x=(Math.random()-.5)*10;
-lamps.push(add(new THREE.SphereGeometry(.15,12,12),
-new THREE.MeshBasicMaterial({color:0xffdf65}),x,1.5,3));
-message='🕯️ แสงแห่งศรัทธาสว่างไสว';
-}
-if(type==='sathu'){
-message='🙏 สาธุ สาธุ สาธุ';
-}
-document.getElementById('lotus').textContent=lotus;
-document.getElementById('lamps').textContent=lampCount;
-document.getElementById('merit').textContent=merit;
-document.getElementById('message').textContent=message;
+ if(type==='sathu'){
+  merit++;
+  $('message').textContent='🙏 สาธุ สาธุ สาธุ';
+  if(merit%20===0)openBloom();
+ }
+ if(type==='lotus'){
+  lotus++;
+  $('message').textContent='🪷 ขอบคุณสำหรับดอกบัว';
+  if(lotus%5===0)openBloom();
+ }
+ if(type==='rose'){
+  $('message').textContent='🌹 อนุโมทนาบุญ';
+ }
+ if(type==='lamp'){
+  lampCount++;
+  $('message').textContent='🏮 จุดโคมไฟถวายเป็นพุทธบูชา';
+ }
+ updateStats();
 };
 
-function animate(t){
-requestAnimationFrame(animate);
-lamps.forEach((l,i)=>l.scale.y=1+Math.sin(t*.004+i)*.2);
-renderer.render(scene,camera);
-}
-animate(0);
+// ระบบตัวละคร
+const avatarRoot=new THREE.Group();
+scene.add(avatarRoot);
 
-window.addEventListener('resize',()=>{
-camera.aspect=innerWidth/(innerHeight*.65);
-camera.updateProjectionMatrix();
-renderer.setSize(innerWidth,innerHeight*.65);
-});
+const remotePlayers=new Map();
+let localAvatar=null;
+let localPlayerId=null;
+let socket=null;
+
+function makeAvatar(id,gender,outfit){
+ const g=new THREE.Group();
+
+ const cloth=new THREE.MeshStandardMaterial({
+  color:outfit==='thai'?0xb97832:
+        outfit==='casual'?0xe8d9bd:0xf2eee4
+ });
+ const hair=new THREE.MeshStandardMaterial({color:0x24170f});
+ const trousers=new THREE.MeshStandardMaterial({color:0x302a26});
+
+ const body=add(
+  new THREE.CapsuleGeometry(.34,.8,5,10),
+  cloth,0,1.25,0,g
+ );
+ const head=ball(0,2.1,0,.27,.3,.25,skin,g);
+ ball(0,2.28,-.04,.28,.25,.25,hair,g);
+
+ if(gender==='female'){
+  ball(0,1.85,-.18,.16,.45,.16,hair,g);
+ }
+
+ const armL=add(
+  new THREE.CapsuleGeometry(.1,.55,4,8),
+  cloth,-.43,1.4,0,g
+ );
+ const armR=add(
+  new THREE.CapsuleGeometry(.1,.55,4,8),
+  cloth,.43,1.4,0,g
+ );
+ const legL=add(
+  new THREE.CapsuleGeometry(.13,.6,4,8),
+  trousers,-.18,.45,0,g
+ );
+ const legR=add(
+  new THREE.CapsuleGeometry(.13,.6,4,8),
+  trousers,.18,.45,0,g
+ );
+ const palms=ball(0,1.3,.25,.12,.12,.12,skin,g);
+
+ g.userData={
+  id,gender,outfit,pose:'idle',
+  target:new THREE.Vector3(0,0,7),
+  parts:{body,armL,armR,legL,legR,palms}
+ };
+ return g;
+}
+
+function setPose(g,pose){
+ g.userData.pose=pose;
+ g.userData.poseAt=performance.now();
+}
+
+function ensureLocal(){
+ if(!localAvatar){
+  localAvatar=makeAvatar(
+   localPlayerId||'local',
+   $('avatarGender').value,
+   $('avatarOutfit').value
+  );
+  localAvatar.position.set(0,0,7);
+  localAvatar.rotation.y=Math.PI;
+  avatarRoot.add(localAvatar);
+ }
+ return localAvatar;
+}
+
+function publishPlayer(){
+ if(!socket?.connected||!localAvatar)return;
+ socket.emit('player:update',{
+  x:localAvatar.position.x,
+  z:localAvatar.position.z,
+  rotation:localAvatar.rotation.y,
+  gender:localAvatar.userData.gender,
+  outfit:localAvatar.userData.outfit,
+  pose:localAvatar.userData.pose
+ });
+}
+
+function movePlayer(x,z){
+ const g=ensureLocal();
+ g.userData.target.set(x,0,z);
+ setPose(g,'walking');
+ publishPlayer();
+}
+
+$('joinTemple').onclick=()=>{
+ if(localAvatar)avatarRoot.remove(localAvatar);
+ localAvatar=makeAvatar(
+  'local',
+  $('avatarGender').value,
+  $('avatarOutfit').value
+ );
+ localAvatar.position.set(0,0,7);
+ localAvatar.rotation.y=Math.PI;
+ avatarRoot.add(localAvatar);
+ $('message').textContent='🙏 เข้าร่วมวิหารแล้ว';
+ publishPlayer();
+};
+
+$('walkTemple').onclick=()=>{
+ movePlayer((Math.random()-.5)*2,1.8);
+ $('message').textContent='กำลังเดินไปไหว้พระ';
+};
+
+$('kneelTemple').onclick=()=>{
+ const g=ensureLocal();
+ setPose(g,'kneeling');
+ publishPlayer();
+ $('message').textContent='🙏 กำลังนั่งพนมมือ';
+};
+
+$('bowTemple').onclick=()=>{
+ const g=ensureLocal();
+ setPose(g,'bowing');
+ publishPlayer();
+ $('message').textContent='🙏 กำลังกราบพระ 3 ครั้ง';
+};
+
+$('resetPose').onclick=()=>{
+ const g=ensureLocal();
+ g.position.set(0,0,7);
+ g.userData.target.set(0,0,7);
+ setPose(g,'idle');
+ publishPlayer();
+};
+
+// รับข้อมูลผู้เล่นคนอื่น
+function syncRemote(data){
+ if(!data||!data.id||data.id===localPlayerId)return;
+
+ let g=remotePlayers.get(data.id);
+
+ if(!g){
+  g=makeAvatar(data.id,data.gender,data.outfit);
+  avatarRoot.add(g);
+  remotePlayers.set(data.id,g);
+ }
+
+ g.userData.target.set(
+  Number(data.x)||0,0,Number(data.z)||7
+ );
+ g.rotation.y=Number(data.rotation)||Math.PI;
+ setPose(g,data.pose||'idle');
+}
+
+// เชื่อมต่อ Socket.IO
+const socketScript=document.createElement('script');
+socketScript.src='/socket.io/socket.io.js';
+
+socketScript.onload=()=>{
+ if(!window.io){
+  $('liveStatus').textContent='ไม่พบ Socket.IO';
+  return;
+ }
+
+ socket=window.io();
+
+ socket.on('connect',()=>{
+  localPlayerId=socket.id;
+  $('liveStatus').textContent='🟢 เชื่อมต่อวิหารแล้ว';
+  socket.emit('player:join',{
+   name:'Guest',
+   gender:$('avatarGender').value,
+   outfit:$('avatarOutfit').value
+  });
+ });
+
+ socket.on('disconnect',()=>{
+  $('liveStatus').textContent='🔴 หลุดการเชื่อมต่อ';
+ });
+
+ socket.on('players:snapshot',list=>{
+  (list||[]).forEach(syncRemote);
+ });
+
+ socket.on('player:update',syncRemote);
+
+ socket.on('player:left',data=>{
+  const g=remotePlayers.get(data.id);
+  if(g){
+   avatarRoot.remove(g);
+   remotePlayers.delete(data.id);
+  }
+ });
+};
+
+document.head.appendChild(socketScript);
+
+// Animation
+const clock=new THREE.Clock();
+
+function animate(){
+ requestAnimationFrame(animate);
+
+ const dt=Math.min(clock.getDelta(),.05);
+ const t=clock.elapsedTime;
+
+ avatarRoot.children.forEach(g=>{
+  const p=g.userData.parts;
+  const target=g.userData.target;
+
+  g.position.lerp(target,Math.min(1,dt*3));
+
+  if(g.userData.pose==='walking'){
+   const swing=Math.sin(t*8)*.45;
+   p.armL.rotation.x=swing;
+   p.armR.rotation.x=-swing;
+   p.legL.rotation.x=-swing;
+   p.legR.rotation.x=swing;
+
+   if(g.position.distanceTo(target)<.12){
+    setPose(g,'idle');
+    if(g.userData.id===localPlayerId)publishPlayer();
+   }
+  }else{
+   p.armL.rotation.x=0;
+   p.armR.rotation.x=0;
+   p.legL.rotation.x=0;
+   p.legR.rotation.x=0;
+  }
+
+  if(g.userData.pose==='kneeling'){
+   g.position.y=-.35;
+   p.body.rotation.x=.15;
+   p.armL.rotation.z=-.8;
+   p.armR.rotation.z=.8;
+   p.palms.position.set(0,1.5,.2);
+  }else if(g.userData.pose==='bowing'){
+   const elapsed=(performance.now()-g.userData.poseAt)/1000;
+   const cycle=1.35;
+   const phase=elapsed%cycle;
+   p.body.rotation.x=phase<.55?
+    Math.sin(phase/.55*Math.PI/2)*1.0:
+    phase<.9?1.0*(1-(phase-.55)/.35):0;
+
+   g.position.y=-.35;
+
+   if(elapsed>=cycle*3){
+    setPose(g,'kneeling');
+    if(g.userData.id===localPlayerId){
+     $('message').textContent='🙏 กราบครบ 3 ครั้งแล้ว';
+     publishPlayer();
+    }
+   }
+  }else if(g.userData.pose!=='kneeling'){
+   g.position.y=0;
+   p.body.rotation.x=0;
+   p.armL.rotation.z=-.22;
+   p.armR.rotation.z=.22;
+   p.palms.position.set(0,1.3,.25);
+  }
+ });
+
+ if(localAvatar){
+  const pos=localAvatar.position;
+  camera.position.lerp(
+   new THREE.Vector3(pos.x,5.5,pos.z+10),.035
+  );
+  camera.lookAt(pos.x,3,pos.z-2);
+ }
+
+ $('playersCount').textContent=1+remotePlayers.size;
+
+ halo.rotation.z=Math.sin(t*.3)*.025;
+ halo.scale.setScalar(1+Math.sin(t*1.5)*.012);
+
+ lamps.forEach((l,i)=>{
+  l.cage.scale.y=1+Math.sin(t*2+i)*.06;
+  l.light.intensity=2+Math.sin(t*3+i)*.4;
+ });
+
+ if(bloomOpen){
+  bloom.scale.setScalar(Math.min(1,bloom.scale.x+.02));
+ }
+
+ renderer.render(scene,camera);
+}
+
+animate();
+
+function resize(){
+ const w=root.clientWidth;
+ const h=root.clientHeight;
+ camera.aspect=w/h;
+ camera.updateProjectionMatrix();
+ renderer.setSize(w,h);
+}
+window.addEventListener('resize',resize);
+updateStats();
+
 </script>
 </body>
 </html>
