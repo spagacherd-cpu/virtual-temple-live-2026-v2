@@ -1,0 +1,10 @@
+{
+  "name": "virtual-temple-live-2026",
+  "private": true,
+  "version": "3.0.0-phase2",
+  "scripts": {
+    "build": "npm --prefix client install && npm --prefix client run build && npm --prefix server install",
+    "start": "node server/index.js"
+  },
+  "engines": { "node": ">=18" }
+}

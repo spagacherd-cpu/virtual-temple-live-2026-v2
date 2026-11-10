@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: virtual-temple-live-2026-v3
+    runtime: node
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    plan: free
