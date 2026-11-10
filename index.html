@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Virtual Temple LIVE 2026</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080b29;color:#fff;font-family:Arial,sans-serif}
+header{text-align:center;padding:15px;color:#ffe19a}
+h1{font-size:24px;margin:5px}
+#scene{height:65vh;min-height:420px;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 45%,#49306b,#10183d 65%,#050819)}
+canvas{width:100%;height:100%;display:block}
+.panel{padding:12px;text-align:center;background:#101735}
+.stats{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.stat{background:#29234a;border:1px solid #d9ad55;border-radius:20px;padding:8px 12px;font-size:13px}
+button{background:linear-gradient(135deg,#ffe6a0,#d99a35);border:0;border-radius:12px;padding:13px 8px;font-weight:bold;color:#39220b}
+.buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:12px}
+#message{color:#ffdf8c;min-height:28px;margin:12px}
+small{color:#bbb}
+</style>
+</head>
+<body>
+<header>
+<h1>🙏 VIRTUAL TEMPLE 🙏</h1>
+<div>ร่วมสักการะพระพุทธรูปออนไลน์</div>
+</header>
+<div id="scene"></div>
+<div class="panel">
+<div class="stats">
+<div class="stat">🪷 บัว <b id="lotus">0</b></div>
+<div class="stat">🕯️ โคม <b id="lamps">12</b></div>
+<div class="stat">🙏 สาธุ <b id="merit">0</b></div>
+</div>
+<div id="message">ยินดีต้อนรับสู่ Virtual Temple</div>
+<div class="buttons">
+<button onclick="gift('lotus')">🪷 ถวายดอกบัว</button>
+<button onclick="gift('rose')">🌹 ส่งกุหลาบ</button>
+<button onclick="gift('lamp')">🕯️ จุดโคม</button>
+<button onclick="gift('sathu')">🙏 กดสาธุ</button>
+</div>
+<p><small>โหมดทดลองเอฟเฟกต์ ของขวัญเหล่านี้ยังไม่ใช่การซื้อจริง</small></p>
+</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const root=document.getElementById('scene');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x111638);
+scene.fog=new THREE.Fog(0x111638,25,60);
+
+const camera=new THREE.PerspectiveCamera(48,innerWidth/(innerHeight*.65),.1,100);
+camera.position.set(0,7,23);
+camera.lookAt(0,5,0);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight*.65);
+root.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffe3ac,0x34345f,2));
+const lamp=new THREE.PointLight(0xffc45c,180,35);
+lamp.position.set(0,9,5);
+scene.add(lamp);
+
+const gold=new THREE.MeshStandardMaterial({color:0xffc43d,metalness:.75,roughness:.25});
+const dark=new THREE.MeshStandardMaterial({color:0x292c59});
+const white=new THREE.MeshStandardMaterial({color:0xffe4a0});
+
+function add(geo,mat,x,y,z){
+const m=new THREE.Mesh(geo,mat);
+m.position.set(x,y,z);
+scene.add(m);
+return m;
+}
+function box(w,h,d,x,y,z,mat=gold){
+return add(new THREE.BoxGeometry(w,h,d),mat,x,y,z);
+}
+
+// Temple
+box(15,7,2,0,4,-5,dark);
+box(17,.5,3,0,7.7,-4);
+box(13,.4,3,0,1,-3);
+for(let x=-6;x<=6;x+=3)box(.5,6,.6,x,4,-2,white);
+
+function roof(x,y,z,w){
+const r=add(new THREE.ConeGeometry(w,3,4),gold,x,y,z);
+r.rotation.y=Math.PI/4;
+r.scale.set(1,.8,.7);
+}
+roof(0,10,-5,9);
+roof(0,11,-3,6);
+roof(-7,7,-4,4);
+roof(7,7,-4,4);
+
+// Buddha lotus pedestal
+for(let i=0;i<4;i++){
+const b=add(new THREE.CylinderGeometry(4-i*.4,4.3-i*.4,.45,48),gold,0,.2+i*.45,0);
+}
+
+// Buddha body
+add(new THREE.SphereGeometry(1.2,32,24),gold,0,4.2,1);
+const body=add(new THREE.ConeGeometry(1.55,3,32),gold,0,3.5,1);
+body.rotation.z=Math.PI;
+add(new THREE.SphereGeometry(.75,32,24),gold,0,6.2,1);
+for(let x of [-.78,.78])
+add(new THREE.SphereGeometry(.2,16,16),gold,x,6.2,1);
+add(new THREE.TorusGeometry(1.6,.1,12,80),white,0,6.2,.2);
+
+// Moon and stars
+add(new THREE.SphereGeometry(1.6,32,24),
+new THREE.MeshBasicMaterial({color:0xffedb2}),8,13,-12);
+for(let i=0;i<100;i++){
+add(new THREE.SphereGeometry(.035,8,8),
+new THREE.MeshBasicMaterial({color:0xffffff}),
+(Math.random()-.5)*40,Math.random()*20+2,-12);
+}
+
+// Twelve lamps
+const lamps=[];
+for(let i=0;i<12;i++){
+const x=(i-5.5)*1.1;
+box(.16,.7,.16,x,1,3);
+lamps.push(add(new THREE.SphereGeometry(.14,12,12),
+new THREE.MeshBasicMaterial({color:0xffcc55}),x,1.5,3));
+}
+
+// Flower effects
+function flower(color){
+const x=(Math.random()-.5)*7;
+const z=2;
+for(let i=0;i<6;i++){
+const p=add(new THREE.SphereGeometry(.22,12,12),
+new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.3}),
+x+Math.cos(i*Math.PI/3)*.28,.5,z+Math.sin(i*Math.PI/3)*.28);
+p.scale.y=.5;
+}
+add(new THREE.SphereGeometry(.12,12,12),gold,x,.5,z);
+}
+
+let merit=0,lotus=0,lampCount=12;
+
+window.gift=function(type){
+merit++;
+let message='';
+if(type==='lotus'){
+lotus++;
+flower(0xffd65c);
+message='🪷 บัวทองบานแล้ว อนุโมทนา';
+}
+if(type==='rose'){
+flower(0xff3975);
+message='🌹 ขอบคุณสำหรับดอกกุหลาบ';
+}
+if(type==='lamp'){
+lampCount++;
+const x=(Math.random()-.5)*10;
+lamps.push(add(new THREE.SphereGeometry(.15,12,12),
+new THREE.MeshBasicMaterial({color:0xffdf65}),x,1.5,3));
+message='🕯️ แสงแห่งศรัทธาสว่างไสว';
+}
+if(type==='sathu'){
+message='🙏 สาธุ สาธุ สาธุ';
+}
+document.getElementById('lotus').textContent=lotus;
+document.getElementById('lamps').textContent=lampCount;
+document.getElementById('merit').textContent=merit;
+document.getElementById('message').textContent=message;
+};
+
+function animate(t){
+requestAnimationFrame(animate);
+lamps.forEach((l,i)=>l.scale.y=1+Math.sin(t*.004+i)*.2);
+renderer.render(scene,camera);
+}
+animate(0);
+
+window.addEventListener('resize',()=>{
+camera.aspect=innerWidth/(innerHeight*.65);
+camera.updateProjectionMatrix();
+renderer.setSize(innerWidth,innerHeight*.65);
+});
+</script>
+</body>
+</html>
