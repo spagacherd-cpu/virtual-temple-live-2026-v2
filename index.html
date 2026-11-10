@@ -1,570 +1,124 @@
+import express from 'express';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Server } from 'socket.io';
 
-<!doctype html>
-<html lang="th">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Virtual Temple LIVE 2026</title>
-<style>
-*{box-sizing:border-box}
-body{margin:0;background:#080d20;color:white;font-family:Arial,sans-serif}
-header{text-align:center;padding:12px;color:#ffe4a0}
-header h1{margin:5px;font-size:26px}
-#scene{height:55vh;min-height:350px}
-#scene canvas{display:block;width:100%;height:100%}
-.panel{max-width:900px;margin:auto;padding:14px;background:#111a35;border-top:2px solid #b88c40}
-.stats,.controls{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.stat{padding:12px;background:#263451;border:1px solid #b88c40;border-radius:10px;text-align:center}
-.stat b{display:block;font-size:22px}
-#message{text-align:center;color:#ffe4a0;padding:12px;min-height:40px}
-button,select{padding:12px;border-radius:9px;border:1px solid #d5b568;font-weight:bold;font-size:14px}
-button{background:linear-gradient(135deg,#ffe6a0,#b77b27);color:#241806;cursor:pointer}
-select{background:#263451;color:white}
-.wide{grid-column:1/-1}
-.status{text-align:center;color:#b9d7ff;font-size:12px;padding:10px}
-@media(min-width:700px){.controls{grid-template-columns:repeat(4,1fr)}}
-</style>
-</head>
-<body>
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = Number(process.env.PORT) || 3000;
+const MAX_PLAYERS = Number(process.env.MAX_PLAYERS) || 3000;
+const log = (lvl, msg, extra = {}) => console.log(JSON.stringify({ t: new Date().toISOString(), lvl, msg, ...extra }));
 
-<header>
-<h1>🙏 VIRTUAL TEMPLE 🙏</h1>
-<p>ร่วมสักการะพระพุทธรูปออนไลน์ • Virtual Temple LIVE 2026</p>
-</header>
+// world rules (server-authoritative)
+const B = { halfX: 28, minZ: -9, maxZ: 30 };
+const SPEED = 3.2, TICK_MS = 100, GRACE_MS = 20000, CELL = 12, AOI_CAP = 40;
+const POSES = ['idle', 'sit', 'bow'], GENDERS = ['male', 'female'], OUTFITS = ['thai', 'white', 'cream'];
 
-<div id="scene"></div>
+const players = new Map(); // id -> player
+const byToken = new Map(); // token -> player (survives reconnect for GRACE_MS)
+let seq = 0;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+const r2 = v => Math.round(v * 100) / 100;
+const cleanName = s => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16) || 'ผู้ศรัทธา';
+const online = () => { let n = 0; for (const p of players.values()) if (p.socket) n++; return n; };
 
-<section class="panel">
-<div class="stats">
- <div class="stat">🪷 บัวทองบาน<b id="lotus">0</b></div>
- <div class="stat">🏮 โคมไฟ<b id="lamps">12</b></div>
- <div class="stat">🙏 สาธุสะสม<b id="merit">0 / 20</b></div>
- <div class="stat">👥 ผู้ร่วมวิหาร<b id="playersCount">0</b></div>
-</div>
+const app = express();
+app.disable('x-powered-by');
+app.get('/healthz', (_q, res) => res.json({ ok: true, online: online(), tracked: players.size, uptime: Math.round(process.uptime()) }));
+app.use(express.static(path.join(__dirname, '..', 'client', 'dist'), { maxAge: '1h' }));
+app.use((err, _q, res, _n) => { log('error', 'http', { err: err.message }); res.status(500).end(); });
 
-<div id="message">ยินดีต้อนรับสู่ Virtual Temple</div>
-
-<div class="controls">
- <button onclick="gift('sathu')">🙏 กดสาธุ</button>
- <button onclick="gift('lotus')">🪷 ถวายดอกบัว</button>
- <button onclick="gift('rose')">🌹 ส่งกุหลาบ</button>
- <button onclick="gift('lamp')">🏮 จุดโคมไฟ</button>
-
- <select id="avatarGender">
-  <option value="female">ตัวละครหญิง</option>
-  <option value="male">ตัวละครชาย</option>
- </select>
-
- <select id="avatarOutfit">
-  <option value="white">ชุดสุภาพสีขาว</option>
-  <option value="thai">ชุดไทยประยุกต์</option>
-  <option value="casual">ชุดสุภาพสีครีม</option>
- </select>
-
- <button id="joinTemple">เข้าวิหาร</button>
- <button id="walkTemple">เดินไปไหว้พระ</button>
- <button id="kneelTemple">นั่งพนมมือ</button>
- <button id="bowTemple">กราบพระ 3 ครั้ง</button>
- <button id="resetPose" class="wide">ยืน / กลับจุดเริ่มต้น</button>
-</div>
-
-<div class="status" id="liveStatus">กำลังเชื่อมต่อระบบวิหาร...</div>
-<p class="status">ระบบของขวัญในหน้านี้เป็นโหมดทดสอบ ยังไม่ได้เชื่อมต่อของขวัญจริงจาก TikTok หรือ Facebook</p>
-</section>
-
-<script type="module">
-import * as THREE from
-'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-
-const $=id=>document.getElementById(id);
-const root=$('scene');
-
-const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x101832);
-scene.fog=new THREE.Fog(0x101832,25,65);
-
-const camera=new THREE.PerspectiveCamera(
-45,root.clientWidth/root.clientHeight,0.1,150
-);
-camera.position.set(0,8,22);
-camera.lookAt(0,4,0);
-
-const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(root.clientWidth,root.clientHeight);
-renderer.shadowMap.enabled=true;
-renderer.outputColorSpace=THREE.SRGBColorSpace;
-root.appendChild(renderer.domElement);
-
-scene.add(new THREE.HemisphereLight(0xffe9c2,0x27314f,2));
-
-const sun=new THREE.DirectionalLight(0xffd58a,3);
-sun.position.set(-8,15,12);
-sun.castShadow=true;
-scene.add(sun);
-
-const glow=new THREE.PointLight(0xffa83d,80,35);
-glow.position.set(0,9,5);
-scene.add(glow);
-
-const gold=new THREE.MeshStandardMaterial({
- color:0xd9a83d,metalness:.8,roughness:.25
+const server = http.createServer(app);
+const io = new Server(server, {
+  maxHttpBufferSize: 2048, pingInterval: 10000, pingTimeout: 15000,
+  cors: process.env.CORS_ORIGIN ? { origin: process.env.CORS_ORIGIN.split(',') } : undefined,
 });
-const gold2=new THREE.MeshStandardMaterial({
- color:0xffdf83,metalness:.6,roughness:.2,
- emissive:0x5a3108
-});
-const stone=new THREE.MeshStandardMaterial({color:0x75664f});
-const robe=new THREE.MeshStandardMaterial({color:0xc95b20});
-const skin=new THREE.MeshStandardMaterial({color:0xc99562});
-const dark=new THREE.MeshStandardMaterial({color:0x202b4b});
 
-function add(geo,mat,x=0,y=0,z=0,parent=scene){
- const m=new THREE.Mesh(geo,mat);
- m.position.set(x,y,z);
- m.castShadow=true;
- m.receiveShadow=true;
- parent.add(m);
- return m;
-}
-function box(w,h,d,mat,x,y,z){
- return add(new THREE.BoxGeometry(w,h,d),mat,x,y,z);
-}
-function ball(x,y,z,sx,sy,sz,mat,parent=scene){
- const m=add(new THREE.SphereGeometry(1,24,18),mat,x,y,z,parent);
- m.scale.set(sx,sy,sz);
- return m;
-}
+io.on('connection', socket => {
+  let n = 0, windowStart = Date.now();
+  const allow = () => { // per-socket flood guard
+    const t = Date.now();
+    if (t - windowStart >= 1000) { windowStart = t; n = 0; }
+    if (++n > 120) { log('warn', 'flood-disconnect', { sid: socket.id }); socket.disconnect(true); return false; }
+    return n <= 40;
+  };
 
-// พื้นและวิหาร
-box(20,.5,12,dark,0,0,-4);
-box(17,.3,8,gold,0,.4,-4);
-box(15,.3,6,stone,0,.7,-4);
-
-for(const x of [-6,6]){
- for(const z of [-7,-1]){
-  add(new THREE.CylinderGeometry(.2,.3,6,16),gold,x,3.5,z);
- }
-}
-
-function roof(y,w){
- const r=add(new THREE.ConeGeometry(w,1.5,4),gold,0,y,-4);
- r.rotation.y=Math.PI/4;
- box(w*1.7,.12,w,gold2,0,y-.75,-4);
-}
-roof(7.5,8);
-roof(8.5,6);
-roof(9.5,4);
-
-// ฐานบัวองค์พระ
-for(let i=0;i<4;i++){
- add(new THREE.CylinderGeometry(
- 2.4-i*.2,2.6-i*.2,.3,48
- ),i%2?gold:gold2,0,1.5+i*.3,0);
-}
-
-// องค์พระต้นแบบ 3D
-ball(0,3.2,0,1.5,.65,1,robe);
-ball(0,4.7,0,.9,1.3,.7,robe);
-ball(-.4,5.2,.15,.65,1,.65,robe);
-add(new THREE.CylinderGeometry(.3,.4,.4,24),skin,0,5.9,0);
-ball(0,6.8,0,.72,.9,.65,skin);
-ball(0,7.55,0,.5,.3,.5,dark);
-add(new THREE.ConeGeometry(.12,.4,16),gold2,0,7.9,0);
-
-// รัศมีด้านหลัง
-const halo=new THREE.Group();
-scene.add(halo);
-halo.position.set(0,6.8,-.7);
-for(const r of [1.2,1.5,1.8]){
- const ring=new THREE.Mesh(
-  new THREE.TorusGeometry(r,.035,12,80),
-  new THREE.MeshBasicMaterial({color:0xffd66e})
- );
- halo.add(ring);
-}
-
-// โคมไฟ 12 ดวง
-const lamps=[];
-for(let i=0;i<12;i++){
- const x=(i-5.5)*1.05;
- const y=3+(i%2)*.5;
- const z=i%2?2.5:-2.5;
- const cage=add(
-  new THREE.CylinderGeometry(.18,.2,.4,8),gold,x,y,z
- );
- const bulb=add(
-  new THREE.SphereGeometry(.16,16,12),
-  new THREE.MeshBasicMaterial({color:0xffd36b}),x,y,z
- );
- const light=new THREE.PointLight(0xffb84a,2,5);
- light.position.set(x,y,z);
- scene.add(light);
- lamps.push({cage,bulb,light});
-}
-
-// ดาว
-const stars=[];
-for(let i=0;i<100;i++){
- const s=add(
-  new THREE.SphereGeometry(.035,8,8),
-  new THREE.MeshBasicMaterial({color:0xffffff}),
-  (Math.random()-.5)*40,
-  Math.random()*15+4,-12
- );
- stars.push(s);
-}
-
-// บัวทอง
-const bloom=new THREE.Group();
-scene.add(bloom);
-bloom.position.set(0,2.7,0);
-let bloomOpen=false;
-
-function openBloom(){
- if(bloomOpen)return;
- bloomOpen=true;
- for(let i=0;i<20;i++){
-  const a=i*Math.PI*2/20;
-  const p=ball(
-   Math.cos(a)*1.3,0,Math.sin(a)*1.3,
-   .3,.12,.7,gold2,bloom
-  );
-  p.rotation.y=-a;
- }
- ball(0,.1,0,.35,.2,.35,gold2,bloom);
- $('message').textContent='🪷 บัวทองบานแล้ว อนุโมทนาบุญ';
-}
-
-// ระบบกิจกรรม
-let merit=0,lotus=0,lampCount=12;
-
-function updateStats(){
- $('merit').textContent=merit+' / 20';
- $('lotus').textContent=lotus;
- $('lamps').textContent=lampCount;
-}
-
-window.gift=function(type){
- if(type==='sathu'){
-  merit++;
-  $('message').textContent='🙏 สาธุ สาธุ สาธุ';
-  if(merit%20===0)openBloom();
- }
- if(type==='lotus'){
-  lotus++;
-  $('message').textContent='🪷 ขอบคุณสำหรับดอกบัว';
-  if(lotus%5===0)openBloom();
- }
- if(type==='rose'){
-  $('message').textContent='🌹 อนุโมทนาบุญ';
- }
- if(type==='lamp'){
-  lampCount++;
-  $('message').textContent='🏮 จุดโคมไฟถวายเป็นพุทธบูชา';
- }
- updateStats();
-};
-
-// ระบบตัวละคร
-const avatarRoot=new THREE.Group();
-scene.add(avatarRoot);
-
-const remotePlayers=new Map();
-let localAvatar=null;
-let localPlayerId=null;
-let socket=null;
-
-function makeAvatar(id,gender,outfit){
- const g=new THREE.Group();
-
- const cloth=new THREE.MeshStandardMaterial({
-  color:outfit==='thai'?0xb97832:
-        outfit==='casual'?0xe8d9bd:0xf2eee4
- });
- const hair=new THREE.MeshStandardMaterial({color:0x24170f});
- const trousers=new THREE.MeshStandardMaterial({color:0x302a26});
-
- const body=add(
-  new THREE.CapsuleGeometry(.34,.8,5,10),
-  cloth,0,1.25,0,g
- );
- const head=ball(0,2.1,0,.27,.3,.25,skin,g);
- ball(0,2.28,-.04,.28,.25,.25,hair,g);
-
- if(gender==='female'){
-  ball(0,1.85,-.18,.16,.45,.16,hair,g);
- }
-
- const armL=add(
-  new THREE.CapsuleGeometry(.1,.55,4,8),
-  cloth,-.43,1.4,0,g
- );
- const armR=add(
-  new THREE.CapsuleGeometry(.1,.55,4,8),
-  cloth,.43,1.4,0,g
- );
- const legL=add(
-  new THREE.CapsuleGeometry(.13,.6,4,8),
-  trousers,-.18,.45,0,g
- );
- const legR=add(
-  new THREE.CapsuleGeometry(.13,.6,4,8),
-  trousers,.18,.45,0,g
- );
- const palms=ball(0,1.3,.25,.12,.12,.12,skin,g);
-
- g.userData={
-  id,gender,outfit,pose:'idle',
-  target:new THREE.Vector3(0,0,7),
-  parts:{body,armL,armR,legL,legR,palms}
- };
- return g;
-}
-
-function setPose(g,pose){
- g.userData.pose=pose;
- g.userData.poseAt=performance.now();
-}
-
-function ensureLocal(){
- if(!localAvatar){
-  localAvatar=makeAvatar(
-   localPlayerId||'local',
-   $('avatarGender').value,
-   $('avatarOutfit').value
-  );
-  localAvatar.position.set(0,0,7);
-  localAvatar.rotation.y=Math.PI;
-  avatarRoot.add(localAvatar);
- }
- return localAvatar;
-}
-
-function publishPlayer(){
- if(!socket?.connected||!localAvatar)return;
- socket.emit('player:update',{
-  x:localAvatar.position.x,
-  z:localAvatar.position.z,
-  rotation:localAvatar.rotation.y,
-  gender:localAvatar.userData.gender,
-  outfit:localAvatar.userData.outfit,
-  pose:localAvatar.userData.pose
- });
-}
-
-function movePlayer(x,z){
- const g=ensureLocal();
- g.userData.target.set(x,0,z);
- setPose(g,'walking');
- publishPlayer();
-}
-
-$('joinTemple').onclick=()=>{
- if(localAvatar)avatarRoot.remove(localAvatar);
- localAvatar=makeAvatar(
-  'local',
-  $('avatarGender').value,
-  $('avatarOutfit').value
- );
- localAvatar.position.set(0,0,7);
- localAvatar.rotation.y=Math.PI;
- avatarRoot.add(localAvatar);
- $('message').textContent='🙏 เข้าร่วมวิหารแล้ว';
- publishPlayer();
-};
-
-$('walkTemple').onclick=()=>{
- movePlayer((Math.random()-.5)*2,1.8);
- $('message').textContent='กำลังเดินไปไหว้พระ';
-};
-
-$('kneelTemple').onclick=()=>{
- const g=ensureLocal();
- setPose(g,'kneeling');
- publishPlayer();
- $('message').textContent='🙏 กำลังนั่งพนมมือ';
-};
-
-$('bowTemple').onclick=()=>{
- const g=ensureLocal();
- setPose(g,'bowing');
- publishPlayer();
- $('message').textContent='🙏 กำลังกราบพระ 3 ครั้ง';
-};
-
-$('resetPose').onclick=()=>{
- const g=ensureLocal();
- g.position.set(0,0,7);
- g.userData.target.set(0,0,7);
- setPose(g,'idle');
- publishPlayer();
-};
-
-// รับข้อมูลผู้เล่นคนอื่น
-function syncRemote(data){
- if(!data||!data.id||data.id===localPlayerId)return;
-
- let g=remotePlayers.get(data.id);
-
- if(!g){
-  g=makeAvatar(data.id,data.gender,data.outfit);
-  avatarRoot.add(g);
-  remotePlayers.set(data.id,g);
- }
-
- g.userData.target.set(
-  Number(data.x)||0,0,Number(data.z)||7
- );
- g.rotation.y=Number(data.rotation)||Math.PI;
- setPose(g,data.pose||'idle');
-}
-
-// เชื่อมต่อ Socket.IO
-const socketScript=document.createElement('script');
-socketScript.src='/socket.io/socket.io.js';
-
-socketScript.onload=()=>{
- if(!window.io){
-  $('liveStatus').textContent='ไม่พบ Socket.IO';
-  return;
- }
-
- socket=window.io();
-
- socket.on('connect',()=>{
-  localPlayerId=socket.id;
-  $('liveStatus').textContent='🟢 เชื่อมต่อวิหารแล้ว';
-  socket.emit('player:join',{
-   name:'Guest',
-   gender:$('avatarGender').value,
-   outfit:$('avatarOutfit').value
+  socket.on('join', raw => {
+    if (!allow() || !raw || typeof raw !== 'object') return;
+    const token = typeof raw.token === 'string' && /^[\w-]{8,64}$/.test(raw.token) ? raw.token : null;
+    const gender = GENDERS.includes(raw.gender) ? raw.gender : null;
+    const outfit = OUTFITS.includes(raw.outfit) ? raw.outfit : null;
+    if (!token || !gender || !outfit) return;
+    let p = byToken.get(token);
+    if (!p) {
+      if (players.size >= MAX_PLAYERS) { socket.emit('full'); socket.disconnect(true); return; }
+      p = { id: (++seq).toString(36) + Math.random().toString(36).slice(2, 6), token, x: (Math.random() - 0.5) * 6, z: 12, r: Math.PI, moving: 0, pose: 'idle', lastMove: Date.now() };
+      players.set(p.id, p); byToken.set(token, p);
+    } else if (p.socket && p.socket !== socket) p.socket.disconnect(true); // same player, new connection
+    Object.assign(p, { name: cleanName(raw.name), gender, outfit, socket, known: new Set(), dropAt: 0, lastMove: Date.now() });
+    socket.data.p = p;
+    socket.emit('welcome', { id: p.id, x: p.x, z: p.z, r: p.r, pose: p.pose });
+    log('info', 'join', { id: p.id, online: online() });
   });
- });
 
- socket.on('disconnect',()=>{
-  $('liveStatus').textContent='🔴 หลุดการเชื่อมต่อ';
- });
+  socket.on('move', m => {
+    const p = socket.data.p;
+    if (!allow() || !p || !m || p.pose !== 'idle' || !isNum(m.x) || !isNum(m.z) || !isNum(m.r)) return;
+    const now = Date.now(), dt = Math.min((now - p.lastMove) / 1000, 1);
+    p.lastMove = now;
+    const x = clamp(m.x, -B.halfX, B.halfX), z = clamp(m.z, B.minZ, B.maxZ);
+    if (Math.hypot(x - p.x, z - p.z) > SPEED * 1.6 * dt + 0.6) { socket.emit('correct', { x: p.x, z: p.z, r: p.r }); return; } // speed/teleport check
+    p.x = x; p.z = z; p.r = clamp(m.r, -10, 10); p.moving = m.m ? 1 : 0;
+  });
 
- socket.on('players:snapshot',list=>{
-  (list||[]).forEach(syncRemote);
- });
+  socket.on('pose', v => {
+    const p = socket.data.p;
+    if (!allow() || !p || !POSES.includes(v)) return;
+    if (p.pose === 'bow' && v === 'bow') return;
+    p.pose = v; if (v !== 'idle') p.moving = 0;
+  });
 
- socket.on('player:update',syncRemote);
+  socket.on('pingt', (t, cb) => { if (typeof cb === 'function') cb(t); }); // for load test latency
 
- socket.on('player:left',data=>{
-  const g=remotePlayers.get(data.id);
-  if(g){
-   avatarRoot.remove(g);
-   remotePlayers.delete(data.id);
-  }
- });
-};
+  socket.on('disconnect', () => {
+    const p = socket.data.p;
+    if (p && p.socket === socket) { p.socket = null; p.dropAt = Date.now() + GRACE_MS; p.moving = 0; }
+  });
+});
 
-document.head.appendChild(socketScript);
-
-// Animation
-const clock=new THREE.Clock();
-
-function animate(){
- requestAnimationFrame(animate);
-
- const dt=Math.min(clock.getDelta(),.05);
- const t=clock.elapsedTime;
-
- avatarRoot.children.forEach(g=>{
-  const p=g.userData.parts;
-  const target=g.userData.target;
-
-  g.position.lerp(target,Math.min(1,dt*3));
-
-  if(g.userData.pose==='walking'){
-   const swing=Math.sin(t*8)*.45;
-   p.armL.rotation.x=swing;
-   p.armR.rotation.x=-swing;
-   p.legL.rotation.x=-swing;
-   p.legR.rotation.x=swing;
-
-   if(g.position.distanceTo(target)<.12){
-    setPose(g,'idle');
-    if(g.userData.id===localPlayerId)publishPlayer();
-   }
-  }else{
-   p.armL.rotation.x=0;
-   p.armR.rotation.x=0;
-   p.legL.rotation.x=0;
-   p.legR.rotation.x=0;
-  }
-
-  if(g.userData.pose==='kneeling'){
-   g.position.y=-.35;
-   p.body.rotation.x=.15;
-   p.armL.rotation.z=-.8;
-   p.armR.rotation.z=.8;
-   p.palms.position.set(0,1.5,.2);
-  }else if(g.userData.pose==='bowing'){
-   const elapsed=(performance.now()-g.userData.poseAt)/1000;
-   const cycle=1.35;
-   const phase=elapsed%cycle;
-   p.body.rotation.x=phase<.55?
-    Math.sin(phase/.55*Math.PI/2)*1.0:
-    phase<.9?1.0*(1-(phase-.55)/.35):0;
-
-   g.position.y=-.35;
-
-   if(elapsed>=cycle*3){
-    setPose(g,'kneeling');
-    if(g.userData.id===localPlayerId){
-     $('message').textContent='🙏 กราบครบ 3 ครั้งแล้ว';
-     publishPlayer();
+// ---- 10 Hz tick: area-of-interest snapshots (3x3 grid cells, nearest AOI_CAP players)
+const cell = v => Math.floor(v / CELL), key = (cx, cz) => (cx + 50) * 100 + (cz + 50);
+setInterval(() => {
+  try {
+    const now = Date.now(), grid = new Map();
+    for (const p of players.values()) {
+      if (!p.socket && now > p.dropAt) { players.delete(p.id); byToken.delete(p.token); continue; }
+      const k = key(cell(p.x), cell(p.z));
+      const a = grid.get(k); if (a) a.push(p); else grid.set(k, [p]);
     }
-   }
-  }else if(g.userData.pose!=='kneeling'){
-   g.position.y=0;
-   p.body.rotation.x=0;
-   p.armL.rotation.z=-.22;
-   p.armR.rotation.z=.22;
-   p.palms.position.set(0,1.3,.25);
-  }
- });
+    for (const p of players.values()) {
+      if (!p.socket) continue;
+      const cx = cell(p.x), cz = cell(p.z), near = [];
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        const a = grid.get(key(cx + dx, cz + dz)); if (!a) continue;
+        for (const q of a) if (q !== p) near.push([(q.x - p.x) ** 2 + (q.z - p.z) ** 2, q]);
+      }
+      if (!near.length) continue;
+      if (near.length > AOI_CAP) { near.sort((a, b) => a[0] - b[0]); near.length = AOI_CAP; }
+      const rows = []; let meta;
+      for (const [, q] of near) {
+        rows.push([q.id, r2(q.x), r2(q.z), r2(q.r), q.moving, POSES.indexOf(q.pose)]);
+        if (!p.known.has(q.id)) { p.known.add(q.id); (meta ??= {})[q.id] = [q.name, GENDERS.indexOf(q.gender), OUTFITS.indexOf(q.outfit)]; }
+      }
+      p.socket.volatile.emit('snap', meta ? { p: rows, m: meta } : { p: rows });
+    }
+  } catch (e) { log('error', 'tick', { err: String(e) }); }
+}, TICK_MS);
+setInterval(() => io.emit('count', online()), 1000);
 
- if(localAvatar){
-  const pos=localAvatar.position;
-  camera.position.lerp(
-   new THREE.Vector3(pos.x,5.5,pos.z+10),.035
-  );
-  camera.lookAt(pos.x,3,pos.z-2);
- }
-
- $('playersCount').textContent=1+remotePlayers.size;
-
- halo.rotation.z=Math.sin(t*.3)*.025;
- halo.scale.setScalar(1+Math.sin(t*1.5)*.012);
-
- lamps.forEach((l,i)=>{
-  l.cage.scale.y=1+Math.sin(t*2+i)*.06;
-  l.light.intensity=2+Math.sin(t*3+i)*.4;
- });
-
- if(bloomOpen){
-  bloom.scale.setScalar(Math.min(1,bloom.scale.x+.02));
- }
-
- renderer.render(scene,camera);
-}
-
-animate();
-
-function resize(){
- const w=root.clientWidth;
- const h=root.clientHeight;
- camera.aspect=w/h;
- camera.updateProjectionMatrix();
- renderer.setSize(w,h);
-}
-window.addEventListener('resize',resize);
-updateStats();
-
-</script>
-</body>
-</html>
+server.listen(PORT, () => log('info', 'listening', { port: PORT }));
+const stop = () => { log('info', 'shutdown'); io.close(() => process.exit(0)); setTimeout(() => process.exit(0), 5000).unref(); };
+process.on('SIGTERM', stop); process.on('SIGINT', stop);
+process.on('uncaughtException', e => log('error', 'uncaught', { err: String(e) }));
+process.on('unhandledRejection', e => log('error', 'unhandled', { err: String(e) }));
