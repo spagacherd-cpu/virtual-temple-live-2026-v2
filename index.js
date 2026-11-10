@@ -26,7 +26,7 @@ const online = () => { let n = 0; for (const p of players.values()) if (p.socket
 const app = express();
 app.disable('x-powered-by');
 app.get('/healthz', (_q, res) => res.json({ ok: true, online: online(), tracked: players.size, uptime: Math.round(process.uptime()) }));
-app.use(express.static(__dirname, { maxAge: '1h' }));
+app.use(express.static(path.join(__dirname, 'dist'), { maxAge: '1h' }));
 app.use((err, _q, res, _n) => { log('error', 'http', { err: err.message }); res.status(500).end(); });
 
 const server = http.createServer(app);
